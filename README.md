@@ -19,3 +19,12 @@ NoBroker. It does not scrape NoBroker and does not claim live synchronisation.
 - `externalUrl` must be https on nobroker.in; `source` and `lastChecked` are mandatory.
 - Missing audience / sharing / food / amenities / availability stay NULL ("Not specified") and never match a filter.
 - Edits reset verification; `POST /api/admin/listings/{id}/verify` marks attributes admin-verified.
+
+## Adding records
+Open `/admin.html`, enter your ADMIN_KEY and use the form. Sample (fictional) records are labelled as demo
+and cannot carry a NoBroker link. Contact details are shown only if "Show this contact" is ticked.
+
+## Keeping data on Render (PostgreSQL)
+Create a Render PostgreSQL database in the same region, then add these environment variables to the web service:
+SPRING_DATASOURCE_URL=jdbc:postgresql://HOST:5432/DBNAME  (JDBC form, not the postgres:// form)
+SPRING_DATASOURCE_USERNAME=...   SPRING_DATASOURCE_PASSWORD=...
