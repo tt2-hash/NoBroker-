@@ -33,7 +33,9 @@ public class CsvImportService {
                             en(Audience.class, rec.get("audience")), set(Sharing.class, rec.get("sharing")),
                             set(Food.class, rec.get("food")), strs(rec.get("amenities")),
                             en(Availability.class, rec.get("availability")), blankToNull(rec.get("notes")),
-                            rec.get("externalUrl"), source, date(rec.get("lastChecked"))));
+                            rec.get("externalUrl"), source, date(rec.get("lastChecked")),
+                            opt(rec, "contactName"), opt(rec, "contactPhone"),
+                            "true".equalsIgnoreCase(opt(rec, "contactConsent"))));
                     ok++;
                 } catch (Exception e) {
                     errors.add("row " + rec.getRecordNumber() + ": " + e.getMessage());
@@ -41,6 +43,10 @@ public class CsvImportService {
             }
         }
         return new Result(ok, errors);
+    }
+
+    private static String opt(CSVRecord rec, String col) {
+        return rec.isMapped(col) ? blankToNull(rec.get(col)) : null;
     }
 
     private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s.trim(); }

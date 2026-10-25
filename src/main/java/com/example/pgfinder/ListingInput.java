@@ -7,4 +7,5 @@ import java.util.Set;
 public record ListingInput(String name, Locality locality, Integer monthlyRent, Audience audience,
                            Set<Sharing> sharingOptions, Set<Food> foodOptions, Set<String> amenities,
                            Availability availability, String notes, String externalUrl,
-                           DataSource source, LocalDate lastChecked) {}
+                           DataSource source, LocalDate lastChecked,
+                           String contactName, String contactPhone, Boolean contactConsent) {}

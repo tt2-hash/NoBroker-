@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin: add accommodation records</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:16px;line-height:1.45}
+  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  label{display:flex;flex-direction:column;font-size:.85rem;gap:3px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .wide{grid-column:1/-1}
+  .box{border:1px solid #bbb;border-radius:8px;padding:10px;margin:10px 0}
+  #msg{font-weight:600;margin:8px 0}
+  @media (prefers-color-scheme: dark){ body{background:#161616;color:#eee} }
+</style>
+</head>
+<body>
+<h1>Admin</h1>
+<p><a href="/">Back to the search page</a></p>
+<label>Admin key (the ADMIN_KEY you set)<input id="key" type="password" autocomplete="off"></label>
+<p><small>Source "Sample / demo" is for made-up practice data: it is labelled as fictional and cannot carry a NoBroker link. Use the NoBroker sources only for details you are permitted to use.</small></p>
+<div id="msg"></div>
+<form id="f" class="box">
+  <label>Name<input id="name" required></label>
+  <label>Locality<select id="locality"><option value="ANDHERI">Andheri</option><option value="VILE_PARLE">Vile Parle</option></select></label>
+  <label>Monthly rent (₹)<input id="monthlyRent" type="number" min="0"></label>
+  <label>Accommodation<select id="audience"><option value="">Not specified</option><option value="BOYS">Boys</option><option value="GIRLS">Girls</option><option value="CO_ED">Co-ed</option></select></label>
+  <label>Availability<select id="availability"><option value="">Not specified</option><option value="AVAILABLE">Available</option><option value="NOT_AVAILABLE">Not available</option></select></label>
+  <label>Amenities (comma separated)<input id="amenities" placeholder="wifi, laundry"></label>
+  <div class="wide row"><b>Room sharing:</b>
+    <label class="row"><input type="checkbox" name="sharing" value="SINGLE"> Single</label>
+    <label class="row"><input type="checkbox" name="sharing" value="DOUBLE"> Double</label>
+    <small>(leave all unticked = not specified)</small></div>
+  <div class="wide row"><b>Food:</b>
+    <label class="row"><input type="checkbox" name="food" value="VEG"> Veg</label>
+    <label class="row"><input type="checkbox" name="food" value="NON_VEG"> Non-veg</label>
+    <label class="row"><input type="checkbox" name="food" value="JAIN"> Jain</label>
+    <small>(leave all unticked = not specified)</small></div>
+  <label>Source<select id="source"><option value="DEMO">Sample / demo (fictional)</option><option value="BEDR_MANUAL">BedR India, entered manually</option><option value="NOBROKER_MANUAL">NoBroker, entered manually</option><option value="NOBROKER_AUTHORIZED_EXPORT">NoBroker, authorized export</option></select></label>
+  <label>NoBroker listing link (not for sample records)<input id="externalUrl" placeholder="https://www.nobroker.in/..."></label>
+  <label>Date last checked<input id="lastChecked" type="date" required></label>
+  <label>Contact name<input id="contactName"></label>
+  <label>Contact phone<input id="contactPhone" placeholder="+91 00000 00000"></label>
+  <label class="row wide"><input id="contactConsent" type="checkbox"> Show this contact to students (owner agreed, or this is fictional sample data)</label>
+  <label class="wide">Notes (your own words)<input id="notes" maxlength="500"></label>
+  <button type="submit" class="wide">Add record</button>
+</form>
+<h2>Existing records</h2>
+<div id="list"></div>
+<script>
+const $ = id => document.getElementById(id);
+$('lastChecked').value = new Date().toISOString().slice(0,10);
+function say(t, bad){ $('msg').textContent = t; $('msg').style.color = bad ? '#c00' : '#080'; }
+function ticked(n){ return [...document.querySelectorAll('input[name='+n+']:checked')].map(x=>x.value); }
+function hdr(){ return {'Content-Type':'application/json','X-Admin-Key':$('key').value}; }
+
+$('f').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const body = {
+    name: $('name').value, locality: $('locality').value,
+    monthlyRent: $('monthlyRent').value === '' ? null : Number($('monthlyRent').value),
+    audience: $('audience').value || null, availability: $('availability').value || null,
+    sharingOptions: ticked('sharing'), foodOptions: ticked('food'),
+    amenities: $('amenities').value.split(',').map(s=>s.trim()).filter(Boolean),
+    notes: $('notes').value || null, externalUrl: $('externalUrl').value || null,
+    source: $('source').value, lastChecked: $('lastChecked').value,
+    contactName: $('contactName').value || null, contactPhone: $('contactPhone').value || null,
+    contactConsent: $('contactConsent').checked
+  };
+  const r = await fetch('/api/admin/listings', {method:'POST', headers:hdr(), body:JSON.stringify(body)});
+  if (r.ok) { say('Saved.'); $('f').reset(); $('lastChecked').value = new Date().toISOString().slice(0,10); load(); }
+  else { const t = await r.text(); say('Not saved (' + r.status + '). ' + (r.status===403 ? 'Check the admin key.' : t.slice(0,200)), true); }
+});
+
+async function act(method, url){
+  const r = await fetch(url, {method, headers:hdr()});
+  say(r.ok ? 'Done.' : 'Failed (' + r.status + ').', !r.ok);
+  load();
+}
+
+async function load(){
+  const r = await fetch('/api/listings'); const d = await r.json();
+  const out = $('list'); out.replaceChildren();
+  d.results.forEach(v => {
+    const b = document.createElement('div'); b.className = 'box';
+    const t = document.createElement('div');
+    t.textContent = v.name + ' | ' + v.locality + ' | ' + v.source + ' | ' + v.verification;
+    b.append(t);
+    const del = document.createElement('button'); del.textContent = 'Delete';
+    del.onclick = () => { if (confirm('Delete ' + v.name + '?')) act('DELETE', '/api/admin/listings/' + v.id); };
+    b.append(del);
+    if (!v.demo) {
+      const ver = document.createElement('button'); ver.textContent = 'Mark verified';
+      ver.onclick = () => act('POST', '/api/admin/listings/' + v.id + '/verify?verifiedBy=admin');
+      b.append(' ', ver);
+    }
+    out.append(b);
+  });
+}
+load();
+</script>
+</body>
+</html>

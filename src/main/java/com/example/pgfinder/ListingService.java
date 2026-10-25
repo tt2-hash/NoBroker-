@@ -12,8 +12,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class ListingService {
     static final String NS = "Not specified";
     static final String DISCLAIMER =
-        "Prices and availability change often. Always open the listing on NoBroker to verify current "
-      + "details and contact the property provider there before deciding or paying anything.";
+        "Prices and availability change often. Verify current details and contact the property provider "
+      + "through the listing's source (NoBroker or BedR) before deciding or paying anything.";
 
     private final ListingRepository repo;
 
@@ -31,8 +31,8 @@ public class ListingService {
         boolean hasRealData = repo.existsBySourceNot(DataSource.DEMO);
         String mode = hasRealData ? "MANUAL_OR_AUTHORIZED_EXPORT" : "DEMO";
         String notice = hasRealData
-            ? "Records were entered manually or imported from an authorized export. They are NOT synchronised "
-              + "live with NoBroker."
+            ? "Records were entered manually or imported from data we are permitted to use. They are NOT "
+              + "synchronised live with NoBroker, BedR or any other site."
             : "No authorized property data has been loaded. These are demonstration records, not live NoBroker listings.";
         return new SearchResponse(mode, notice, DISCLAIMER, found.size(),
                 found.stream().map(this::toView).collect(Collectors.toList()));
@@ -53,12 +53,36 @@ public class ListingService {
                 l.getAmenities() == null || l.getAmenities().isEmpty()
                         ? List.of(NS) : l.getAmenities().stream().sorted().collect(Collectors.toList()),
                 l.getAvailability() == null ? NS : l.getAvailability().name().replace('_', ' ').toLowerCase(),
-                l.getNotes(), l.getSource().name(), l.getLastChecked().toString(),
+                l.getNotes(), sourceLabel(l.getSource()), l.getLastChecked().toString(),
                 l.getVerificationStatus() == VerificationStatus.ADMIN_VERIFIED
                         ? "Verified by " + (l.getVerifiedBy() == null ? "admin" : l.getVerifiedBy())
                           + " on " + l.getVerifiedOn()
                         : "Unverified",
-                l.getExternalUrl(), demo);
+                l.getExternalUrl(), demo, contactText(l));
+    }
+
+    private static String sourceLabel(DataSource s) {
+        return switch (s) {
+            case BEDR_MANUAL -> "BedR India";
+            case NOBROKER_MANUAL -> "NoBroker (entered manually)";
+            case NOBROKER_AUTHORIZED_EXPORT -> "NoBroker (authorized export)";
+            case DEMO -> "Sample data";
+        };
+    }
+
+    private static String contactText(Listing l) {
+        if (!Boolean.TRUE.equals(l.getContactConsent())) return null;
+        String name = l.getContactName() == null ? "" : l.getContactName();
+        String phone = l.getContactPhone() == null ? "" : l.getContactPhone();
+        String text = (name + " " + phone).trim();
+        if (text.isEmpty()) return null;
+        return l.getSource() == DataSource.DEMO ? "Sample (fictional) contact: " + text : text;
+    }
+
+    private static String clean(String s, int max) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 
     private static ResponseStatusException bad(String m) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, m); }
@@ -69,8 +93,10 @@ public class ListingService {
         if (in.locality() == null) throw bad("locality is required (ANDHERI or VILE_PARLE)");
         if (in.monthlyRent() != null && in.monthlyRent() < 0) throw bad("monthlyRent must not be negative");
         if (in.lastChecked() == null) throw bad("lastChecked is required");
-        if (in.lastChecked().isAfter(LocalDate.now())) throw bad("lastChecked cannot be in the future");
-        if (in.source() == null || in.source() == DataSource.DEMO) throw bad("source must be NOBROKER_MANUAL or NOBROKER_AUTHORIZED_EXPORT");
+        if (in.lastChecked().isAfter(LocalDate.now().plusDays(1))) throw bad("lastChecked cannot be in the future");
+        if (in.source() == null) throw bad("source is required");
+        if (in.source() == DataSource.DEMO && in.externalUrl() != null && !in.externalUrl().isBlank())
+            throw bad("sample (DEMO) records must not have a NoBroker link");
         l.setName(in.name().trim());
         l.setLocality(in.locality());
         l.setMonthlyRent(in.monthlyRent());
@@ -84,6 +110,10 @@ public class ListingService {
         l.setNotes(in.notes());
         l.setExternalUrl(UrlGuard.normalize(in.externalUrl()));
         l.setSource(in.source());
+        boolean consent = Boolean.TRUE.equals(in.contactConsent());
+        l.setContactConsent(consent);
+        l.setContactName(consent ? clean(in.contactName(), 100) : null);
+        l.setContactPhone(consent ? clean(in.contactPhone(), 20) : null);
         l.setLastChecked(in.lastChecked());
         l.setVerificationStatus(VerificationStatus.UNVERIFIED);
         l.setVerifiedBy(null);
@@ -101,11 +131,15 @@ public class ListingService {
         return repo.save(l);
     }
 
+    public void delete(Long id) {
+        if (!repo.existsById(id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        repo.deleteById(id);
+    }
+
     public Listing create(ListingInput in) { return apply(new Listing(), in); }
 
     public Listing update(Long id, ListingInput in) {
         Listing l = repo.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (l.getSource() == DataSource.DEMO) throw bad("demo records cannot be edited");
         return apply(l, in);
     }
 }

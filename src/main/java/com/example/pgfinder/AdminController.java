@@ -43,6 +43,12 @@ public class AdminController {
         return service.toView(service.update(id, in));
     }
 
+    @DeleteMapping("/listings/{id}")
+    public void delete(@RequestHeader(value = "X-Admin-Key", required = false) String key, @PathVariable Long id) {
+        auth(key);
+        service.delete(id);
+    }
+
     /** Call only after you have actually checked the attributes against the NoBroker listing / provider. */
     @PostMapping("/listings/{id}/verify")
     public ListingView verify(@RequestHeader(value = "X-Admin-Key", required = false) String key,
@@ -55,7 +61,6 @@ public class AdminController {
     public CsvImportService.Result importCsv(@RequestHeader(value = "X-Admin-Key", required = false) String key,
                                              @RequestParam DataSource source, @RequestParam MultipartFile file) throws IOException {
         auth(key);
-        if (source == DataSource.DEMO) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid source");
         return importer.run(file.getInputStream(), source);
     }
 }

@@ -12,6 +12,7 @@
   .card{border:1px solid #bbb;border-radius:8px;padding:12px;margin:10px 0}
   .tag{display:inline-block;font-size:.75rem;border:1px solid #888;border-radius:4px;padding:1px 6px;margin-right:6px}
   .demo{background:#fde7e7;border-color:#b00;color:#700}
+  .small{font-size:.75rem;opacity:.75;margin:6px 0 0}
   dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;margin:8px 0}
   dt{font-weight:600} dd{margin:0}
   @media (prefers-color-scheme: dark){
@@ -68,16 +69,17 @@ function render(d){
     const dl = el('dl');
     const rows = [['Locality', v.locality], ['Rent', v.monthlyRent], ['Accommodation', v.audience],
       ['Room sharing', v.sharing.join(', ')], ['Food', v.food.join(', ')], ['Amenities', v.amenities.join(', ')],
-      ['Availability', v.availability], ['Verification', v.verification], ['Last checked', v.lastChecked],
-      ['Data source', v.source]];
+      ['Availability', v.availability], ['Verification', v.verification]];
     rows.forEach(([k, val]) => { dl.append(el('dt', k), el('dd', val)); });
     c.append(dl);
     if (v.notes) c.append(el('p', v.notes));
+    if (v.contact) c.append(el('p', 'Contact: ' + v.contact));
     if (v.nobrokerUrl && v.nobrokerUrl.startsWith('https://')) {
       const a = el('a', 'View on NoBroker');
       a.href = v.nobrokerUrl; a.target = '_blank'; a.rel = 'noopener noreferrer';
       c.append(a, el('p', 'Verify current price and availability, and contact the provider, on NoBroker.'));
     }
+    c.append(el('p', 'Source: ' + v.source + ' \u00b7 Last checked ' + v.lastChecked, 'small'));
     out.append(c);
   });
 }

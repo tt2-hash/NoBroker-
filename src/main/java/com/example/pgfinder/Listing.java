@@ -57,6 +57,11 @@ public class Listing {
     @Enumerated(EnumType.STRING) @Column(nullable = false)
     private VerificationStatus verificationStatus = VerificationStatus.UNVERIFIED;
 
+    // Contact details are shown only when contactConsent is true (owner agreed, or sample data).
+    private Boolean contactConsent;
+    private String contactName;
+    private String contactPhone;
+
     private String verifiedBy;
     private LocalDate verifiedOn;
 }

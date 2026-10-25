@@ -4,10 +4,12 @@ import java.time.LocalDate;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /** Fictional demonstration records so the UI and filters can be tried. No NoBroker URL, no real properties. */
 @Component
+@Order(2)
 public class DemoDataLoader implements CommandLineRunner {
     private final ListingRepository repo;
     private final boolean seed;
@@ -32,6 +34,7 @@ public class DemoDataLoader implements CommandLineRunner {
         l.setSharingOptions(new java.util.HashSet<>(sh)); l.setFoodOptions(new java.util.HashSet<>(food));
         l.setAmenities(new java.util.HashSet<>(am)); l.setAvailability(av);
         l.setNotes("Demonstration record, not a real property.");
+        l.setContactConsent(true); l.setContactName("Sample Owner"); l.setContactPhone("+91 00000 00000");
         l.setSource(DataSource.DEMO); l.setLastChecked(LocalDate.now());
         repo.save(l);
     }
